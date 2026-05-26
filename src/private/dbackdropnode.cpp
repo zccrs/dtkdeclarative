@@ -1,17 +1,14 @@
-// SPDX-FileCopyrightText: 2024 UnionTech Software Technology Co., Ltd.
+// SPDX-FileCopyrightText: 2024 - 2026 UnionTech Software Technology Co., Ltd.
 //
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 #include <QDebug>
-#define protected public
-#define private public
 #include <rhi/qrhi.h>
 #include <private/qsgrenderer_p.h>
-#undef protected
-#undef private
 
 #include "dbackdropnode_p.h"
 #include "dqmlglobalobject_p.h"
+#include "util/dprivateaccessor_p.h"
 
 #include <QQuickItem>
 #include <QRunnable>
@@ -33,6 +30,10 @@
 #endif
 
 #include <algorithm>
+
+#ifndef QT_NO_OPENGL
+D_DECLARE_PRIVATE_MEMBER(QRhi_d_tag, QRhi, d, QRhiImplementation*);
+#endif
 
 DQUICK_BEGIN_NAMESPACE
 
@@ -360,7 +361,7 @@ public:
         QRhiGles2 *gles2Rhi = nullptr;
         if (forceSurface) {
             Q_ASSERT(rhi()->backend() == QRhi::OpenGLES2);
-            gles2Rhi = static_cast<QRhiGles2*>(rhi()->d);
+            gles2Rhi = static_cast<QRhiGles2*>(D_PRIVATE_MEMBER(*rhi(), QRhi_d_tag{}));
             fallbackSurface = gles2Rhi->fallbackSurface;
             gles2Rhi->fallbackSurface = forceSurface;
         }
@@ -383,17 +384,14 @@ public:
         oldCB = dc->currentFrameCommandBuffer();
         context->prepareSync(renderer->devicePixelRatio(), cb, graphicsConfiguration());
 
-        renderer->m_is_rendering = true;
-        renderer->preprocess();
+        renderer->prepareSceneInline();
 
         return true;
     }
 
     bool render(qreal oldDPR, QRhiCommandBuffer* &oldCB) {
-        Q_ASSERT(renderer->m_is_rendering);
-        renderer->render();
-        renderer->m_is_rendering = false;
-        renderer->m_changed_emitted = false;
+        renderer->renderSceneInline();
+        renderer->clearChangedFlag();
 
         context->prepareSync(oldDPR, oldCB, graphicsConfiguration());
 
